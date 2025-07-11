@@ -62,15 +62,16 @@ app.use('/api/', apiLimiter);
 
 // Request logging middleware
 app.use((req, res, next) => {
-  const requestId = generateUUID();
-  req.headers['x-request-id'] = requestId;
-  
+  let requestId = req.headers['x-request-id'];
+  if (!requestId) {
+    requestId = generateUUID();
+    req.headers['x-request-id'] = requestId;
+  }
   logger.info(`${req.method} ${req.path}`, {
     requestId,
     ip: req.ip,
     userAgent: req.get('User-Agent')
   });
-  
   next();
 });
 
