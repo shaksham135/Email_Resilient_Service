@@ -43,8 +43,16 @@ export class EmailService {
   }
 
   async sendEmail(email: EmailData, idempotencyKey?: string, userId?: string): Promise<string> {
+    // Generate idempotency key
+    const key = this.idempotencyService.generateKey(email, idempotencyKey, userId);
+
+    // Check if we already have a result for this key
+    const cachedResult = this.idempotencyService.getResult(key);
+    if (cachedResult && (cachedResult as any).emailId) {
+      return (cachedResult as any).emailId;
+    }
+
     const emailId = generateUUID();
-    
     // Create initial status
     const status: EmailStatus = {
       id: emailId,
@@ -54,18 +62,13 @@ export class EmailService {
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    
     this.statusTracking.set(emailId, status);
-
-    // Generate idempotency key
-    const key = this.idempotencyService.generateKey(email, idempotencyKey, userId);
 
     // Process email asynchronously
     this.processEmail(emailId, email, key, idempotencyKey, userId).catch(error => {
       logger.error(`Failed to process email ${emailId}:`, error);
       this.updateStatus(emailId, 'failed', undefined, error.message);
     });
-
     return emailId;
   }
 
@@ -78,15 +81,14 @@ export class EmailService {
   ): Promise<void> {
     try {
       this.updateStatus(emailId, 'sending');
-
       // Wait for rate limit slot
       await this.rateLimiter.waitForSlot();
-
       // Execute with idempotency
       const result = await this.idempotencyService.execute(key, async () => {
-        return this.sendWithFallback(email);
+        const sendResult = await this.sendWithFallback(email);
+        // Store emailId in the result for idempotency lookups
+        return { ...sendResult, emailId };
       });
-
       this.updateStatus(emailId, 'sent', result);
     } catch (error) {
       this.updateStatus(emailId, 'failed', undefined, error instanceof Error ? error.message : 'Unknown error');
