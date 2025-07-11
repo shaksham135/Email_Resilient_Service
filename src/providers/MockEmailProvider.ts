@@ -21,6 +21,16 @@ export class MockEmailProvider implements EmailProvider {
     const delay = this.averageDelay + (Math.random() - 0.5) * this.averageDelay;
     await new Promise(resolve => setTimeout(resolve, delay));
 
+    // Force failure for test addresses ending with '@fail.com'
+    if (email.to && typeof email.to === 'string' && email.to.endsWith('@fail.com')) {
+      return {
+        success: false,
+        error: 'Simulated forced failure for testing',
+        provider: this.name,
+        timestamp: new Date()
+      };
+    }
+
     // Simulate success/failure based on success rate
     const isSuccess = Math.random() < this.successRate;
 
