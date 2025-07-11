@@ -42,7 +42,7 @@ export class EmailService {
     });
   }
 
-  async sendEmail(email: EmailData, userId?: string): Promise<string> {
+  async sendEmail(email: EmailData, idempotencyKey?: string, userId?: string): Promise<string> {
     const emailId = generateUUID();
     
     // Create initial status
@@ -58,10 +58,10 @@ export class EmailService {
     this.statusTracking.set(emailId, status);
 
     // Generate idempotency key
-    const idempotencyKey = this.idempotencyService.generateKey(email, userId);
+    const key = this.idempotencyService.generateKey(email, idempotencyKey, userId);
 
     // Process email asynchronously
-    this.processEmail(emailId, email, idempotencyKey, userId).catch(error => {
+    this.processEmail(emailId, email, key, idempotencyKey, userId).catch(error => {
       logger.error(`Failed to process email ${emailId}:`, error);
       this.updateStatus(emailId, 'failed', undefined, error.message);
     });
@@ -72,7 +72,8 @@ export class EmailService {
   private async processEmail(
     emailId: string, 
     email: EmailData, 
-    idempotencyKey: string, 
+    key: string, 
+    idempotencyKey?: string,
     userId?: string
   ): Promise<void> {
     try {
@@ -82,7 +83,7 @@ export class EmailService {
       await this.rateLimiter.waitForSlot();
 
       // Execute with idempotency
-      const result = await this.idempotencyService.execute(idempotencyKey, async () => {
+      const result = await this.idempotencyService.execute(key, async () => {
         return this.sendWithFallback(email);
       });
 

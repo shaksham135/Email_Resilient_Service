@@ -4,7 +4,10 @@ export class IdempotencyService {
   private cache: Map<string, EmailResult> = new Map();
   private pendingRequests: Set<string> = new Set();
 
-  generateKey(email: EmailData, userId?: string): string {
+  generateKey(email: EmailData, idempotencyKey?: string, userId?: string): string {
+    if (idempotencyKey) {
+      return `idempotency_${idempotencyKey}`;
+    }
     const emailContent = JSON.stringify({
       to: Array.isArray(email.to) ? email.to.sort() : email.to,
       from: email.from,

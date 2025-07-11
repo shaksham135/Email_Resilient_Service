@@ -160,7 +160,7 @@ app.post('/api/emails', async (req, res) => {
     };
     
     // Send email
-    const emailId = await emailService.sendEmail(emailData, emailRequest.userId);
+    const emailId = await emailService.sendEmail(emailData, requestId, emailRequest.userId);
     
     // Get initial status
     const status = emailService.getEmailStatus(emailId);
